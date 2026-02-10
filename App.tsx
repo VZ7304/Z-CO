@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Message, ChatState } from './types';
 import Header from './components/Header';
 import ChatMessage from './components/ChatMessage';
@@ -13,19 +13,33 @@ const App: React.FC = () => {
     error: null,
   });
 
-  // Tạo sectionId duy nhất cho mỗi phiên truy cập
-  const sectionId = useMemo(() => {
-    return 'zico-session-' + Math.random().toString(36).substring(2, 10);
-  }, []);
+  // Quản lý sessionId trong state để có thể reset
+  const [sessionId, setSessionId] = useState(() => 
+    'zico-session-' + Math.random().toString(36).substring(2, 10)
+  );
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Hàm làm mới cuộc hội thoại
+  const resetChat = () => {
+    setChatState({
+      messages: [],
+      isTyping: false,
+      error: null,
+    });
+    setSessionId('zico-session-' + Math.random().toString(36).substring(2, 10));
+    setInput('');
+    if (textareaRef.current) {
+      textareaRef.current.value = '';
+      textareaRef.current.style.height = '76px';
+    }
+  };
 
   // Tối ưu việc điều chỉnh chiều cao
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
-      // Khi input rỗng, ép chiều cao về mặc định 76px
       if (input === '') {
         textarea.style.height = '76px';
       } else {
@@ -55,17 +69,13 @@ const App: React.FC = () => {
     const messageContent = input.trim();
     if (!messageContent || chatState.isTyping) return;
 
-    // CHIẾN THUẬT XÓA TRIỆT ĐỂ: 
-    // 1. Xóa state ngay lập tức
+    // Xóa sạch input và reset UI
     setInput(''); 
-    
-    // 2. Ép giá trị DOM về rỗng và reset chiều cao ngay lập tức để người dùng thấy khung trống ngay
     if (textareaRef.current) {
       textareaRef.current.value = '';
       textareaRef.current.style.height = '76px';
     }
 
-    // Cập nhật tin nhắn người dùng vào danh sách hiển thị
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -81,13 +91,12 @@ const App: React.FC = () => {
     }));
 
     try {
-      // Xây dựng lịch sử bao gồm cả tin nhắn vừa gửi (vì chatState chưa kịp update do tính async)
       const currentHistory = chatState.messages.map(msg => ({
         role: msg.role === 'user' ? 'user' : 'model',
         parts: [{ text: msg.content }]
       })).concat([{ role: 'user', parts: [{ text: messageContent }] }]);
 
-      const aiResponse = await sendMessageToGemini(messageContent, currentHistory, sectionId);
+      const aiResponse = await sendMessageToGemini(messageContent, currentHistory, sessionId);
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -111,9 +120,8 @@ const App: React.FC = () => {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Xử lý phím Enter (không kèm Shift) để gửi tin nhắn
     if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault(); // Ngăn trình duyệt thêm dòng mới vào textarea
+      e.preventDefault();
       handleSendMessage();
     }
   };
@@ -126,7 +134,7 @@ const App: React.FC = () => {
         <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-zinc-800/10 blur-[140px] rounded-full"></div>
       </div>
 
-      <Header />
+      <Header onReset={resetChat} />
 
       {/* Message Flow */}
       <main className="flex-1 flex flex-col relative z-10">
