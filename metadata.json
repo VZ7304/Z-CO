@@ -1,0 +1,7 @@
+{
+  "name": "ZÍCO AI",
+  "description": "Một trợ lý AI tinh vi, hiện đại với thẩm mỹ tối giản và khả năng suy luận sâu sắc.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
